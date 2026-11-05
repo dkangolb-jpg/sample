@@ -244,3 +244,5 @@ else:
             name_col, score_col = st.columns([3, 1])
             name_col.write(store["name"])
             score_col.write(f"통합 점수 {score}" if score is not None else "통합 점수 없음")
+
+st.caption("copyright by SIMON")
