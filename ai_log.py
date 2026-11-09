@@ -11,8 +11,8 @@ st.set_page_config(page_title="AI 기록")
 
 KST = timezone(timedelta(hours=9))
 
-# app.py · helper.py 에서 save_ai_log 로 남기는 kind 값
-KINDS = ["모두", "챗봇", "내 지역 가게 보기", "helper 챗봇"]
+# app.py · helper.py 에서 save_ai_log · save_search_log 로 남기는 kind 값
+KINDS = ["모두", "가게 검색", "챗봇", "내 지역 가게 보기", "helper 챗봇"]
 
 
 @st.cache_resource
@@ -24,14 +24,14 @@ supabase = get_client()
 
 st.title("AI 기록")
 
-owner = st.text_input("이름", placeholder="기록을 남길 때 넣은 이름").strip()
+owner = st.text_input("검색한 가게 이름", placeholder="예) 행복분식").strip()
 kind = st.selectbox("어디서 물었나", KINDS)
 
 if not owner:
-    st.warning("이름을 입력해 주세요. 그 이름으로 남긴 기록만 보여 드려요")
+    st.warning("검색한 가게 이름을 입력해 주세요. 그 이름으로 남은 기록만 보여 드려요")
     st.stop()
 
-# 이름 칸의 이름과 owner 가 같은 줄만 받는다
+# owner 에는 검색한 가게 이름이 적혀 있다. 칸의 이름과 글자가 똑같은 줄만 받는다
 query = supabase.table("ai_logs").select("created_at, kind, model, input, output").eq("owner", owner)
 if kind != "모두":
     query = query.eq("kind", kind)

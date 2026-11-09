@@ -138,11 +138,22 @@ def total_score(store):
     return (sum(ratings) / len(ratings)).quantize(Decimal("0.1"), ROUND_HALF_UP)
 
 
+def save_search_log(name, output_text):
+    # 가게 이름으로 검색할 때마다 ai_logs 표에 한 줄 남기고, owner 에 검색한 가게 이름을 적는다
+    # 남기지 못해도 검색은 그대로 하고, 안내는 다음에 그려지는 가게 찾기 탭 맨 위에 띄운다
+    try:
+        get_client().table("ai_logs").insert(
+            {"kind": "가게 검색", "model": "AI 안 씀", "input": name, "output": output_text, "owner": name}
+        ).execute()
+    except Exception as e:
+        st.session_state.search_log_error = f"검색 기록을 남기지 못했어요 : {e}"
+
+
 def save_ai_log(kind, input_text, output_text):
-    # AI 에 넣은 것과 받은 답을 사이드바에 넣은 이름과 함께 ai_logs 표에 남긴다. 남기지 못해도 답은 그대로 보여 준다
-    owner = st.session_state.get("owner", "").strip()
+    # AI 에 넣은 것과 받은 답을 마지막으로 검색한 가게 이름과 함께 ai_logs 표에 남긴다. 남기지 못해도 답은 그대로 보여 준다
+    owner = st.session_state.get("last_search", "").strip()
     if not owner:
-        st.warning("이름이 비어 있어 기록을 남기지 않았어요. 사이드바에 이름을 입력해 주세요")
+        st.warning("검색한 가게 이름이 없어 기록을 남기지 않았어요. 먼저 가게 이름으로 검색해 주세요")
         return
     try:
         get_client().table("ai_logs").insert(
@@ -217,9 +228,8 @@ if not st.session_state.get("started"):
         st.rerun()
     st.stop()
 
-# 화면 1·2 의 사이드바 · AI 기록에 같이 남길 이름 칸과 첫 화면으로 돌아가는 버튼
+# 화면 1·2 의 사이드바 · 첫 화면으로 돌아가는 버튼
 with st.sidebar:
-    st.text_input("이름", placeholder="AI 기록에 같이 남길 이름", key="owner")
     if st.button("첫 화면으로 돌아가기", icon=":material/home:", width="stretch"):
         st.session_state.started = False
         st.rerun()
@@ -279,6 +289,14 @@ elif searched:
     known = {s["name"] for s in found}
     kakao = [p for p in kakao if p["name"] not in known]
 
+    # 검색한 가게 이름을 기록으로 남기고, 뒤에 AI 기록을 남길 때 owner 로 쓰도록 기억해 둔다
+    st.session_state.last_search = name
+    if kakao_error:
+        search_result = f"우리 표 {len(found)}곳 · 카카오 오류 : {kakao_error}"
+    else:
+        search_result = f"우리 표 {len(found)}곳 · 카카오 {len(kakao)}곳"
+    save_search_log(name, search_result)
+
     if found or kakao:
         st.session_state.found = found
         st.session_state.kakao = kakao
@@ -326,6 +344,8 @@ with find_tab:
     # 안내 문구는 탭 맨 위 한 줄에 띄운다
     if notice:
         getattr(st, notice[0])(notice[1])
+    if "search_log_error" in st.session_state:
+        st.caption(st.session_state.pop("search_log_error"))
 
     if st.session_state.screen == 2:
         # 화면 2 · 나오는 화면

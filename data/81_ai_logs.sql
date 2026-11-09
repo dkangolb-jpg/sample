@@ -11,7 +11,7 @@ create table if not exists public.ai_logs (
   output     text not null
 );
 
--- 1-1. 누가 남긴 기록인지 적는 owner 열이 없으면 더한다 (앞서 쌓인 기록은 비어 있다)
+-- 1-1. 검색한 가게 이름을 적는 owner 열이 없으면 더한다 (앞서 쌓인 기록은 비어 있다)
 alter table public.ai_logs add column if not exists owner text;
 
 -- 2. 있던 허용 규칙을 지운다
