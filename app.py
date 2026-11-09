@@ -293,6 +293,28 @@ def show_user_bar():
             st.logout()
 
 
+def is_admin():
+    # 들어온 사람의 메일이 secrets.toml 맨 위 ADMIN_EMAILS 목록에 있으면 관리자다. 목록이 없거나 못 읽으면 아무도 관리자가 아니다
+    email = (st.user.get("email") or "").strip().lower()
+    if not email:
+        return False
+    try:
+        admins = st.secrets.get("ADMIN_EMAILS", [])
+    except Exception:
+        return False
+    # "a@x.com, b@x.com" 처럼 글자 하나로 적어 두어도 목록으로 읽는다
+    if isinstance(admins, str):
+        admins = admins.split(",")
+    return email in {str(a).strip().lower() for a in admins}
+
+
+def show_admin():
+    # 관리 화면 · 관리자가 아니면 아무것도 그리지 않는다 (버튼을 숨기는 것과 따로 한 번 더 막는다)
+    if not is_admin():
+        return
+    st.write("관리자만 보는 화면입니다")
+
+
 # 구글 계정으로 들어와야 첫 화면부터 모든 화면이 보인다
 # secrets.toml 에 [auth] 가 아직 없으면 is_logged_in 값 자체가 없으므로 .get 으로 읽어 들어오지 않은 것으로 본다
 if not st.user.get("is_logged_in"):
@@ -314,6 +336,21 @@ with st.sidebar:
     if st.button("첫 화면으로 돌아가기", icon=":material/home:", width="stretch"):
         st.session_state.started = False
         st.rerun()
+
+# 관리자에게만 사이드바에 「관리」 버튼을 보여 준다
+admin = is_admin()
+if admin:
+    with st.sidebar:
+        if st.button("관리", icon=":material/admin_panel_settings:", width="stretch"):
+            st.session_state.screen = "admin"
+            st.rerun()
+
+# 관리 화면 · 관리자가 아니면 화면 1 로 돌려보내고 관리 화면의 코드는 돌지 않는다
+if st.session_state.get("screen") == "admin":
+    if admin:
+        show_admin()
+        st.stop()
+    st.session_state.screen = 1
 
 supabase = get_client()
 
