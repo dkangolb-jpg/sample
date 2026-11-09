@@ -1,0 +1,5 @@
+streamlit==1.65.0
+supabase==2.32.0
+python-dotenv==1.2.4
+google-genai==2.32.0
+requests==2.34.2
