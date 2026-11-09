@@ -213,48 +213,120 @@ if "chat" not in st.session_state:
 
 chatbot()
 
-if st.session_state.screen == 1:
-    # 화면 1 · 넣는 화면
-    st.title("가게 이름으로 찾기")
+# 가게 찾기 결과 칸의 맨 위 한 줄에 띄울 안내. (종류, 문구) 꼴이다
+notice = None
 
+# 제목과 넣는 칸 · 화면 1 과 화면 2 가 같은 자리를 쓴다
+st.title("가게 이름으로 찾기" if st.session_state.screen == 1 else "검색 결과")
+if st.session_state.screen == 2:
+    input_area, back_area = st.columns([5, 1], vertical_alignment="bottom")
+else:
+    input_area, back_area = st.container(), None
+
+with input_area:
     # 폼으로 묶어서, 입력 칸에서 엔터를 쳐도 "검색"을 누른 것처럼 검색한다
     with st.form("search_form", border=False):
-        name = st.text_input("가게 이름", placeholder="예) 행복분식").strip()
-        searched = st.form_submit_button("검색", use_container_width=True)
+        name_col, button_col = st.columns([4, 1], vertical_alignment="bottom")
+        name = name_col.text_input("가게 이름", placeholder="예) 행복분식", key="store_name").strip()
+        searched = button_col.form_submit_button("검색", use_container_width=True)
 
-    if searched and not name:
-        st.warning("가게 이름을 입력해 주세요")
-    elif searched:
-        found = (
-            supabase.table("stores")
-            .select("name, open_time, close_time, naver_rating, kakao_rating")
-            .ilike("name", f"%{name}%")
-            .execute()
-            .data
-        )
-        kakao_error = None
-        try:
-            with st.spinner("카카오에서 찾는 중이에요"):
-                kakao = search_kakao(name)
-        except KakaoError as error:
-            kakao, kakao_error = [], str(error)
-        # stores 표에 이미 있는 가게는 통합 점수가 있는 위쪽 목록에만 보여 준다
-        known = {s["name"] for s in found}
-        kakao = [p for p in kakao if p["name"] not in known]
+if back_area is not None and back_area.button("다시 검색하기", use_container_width=True):
+    st.session_state.screen = 1
+    st.rerun()
 
-        if found or kakao:
-            st.session_state.found = found
-            st.session_state.kakao = kakao
-            st.session_state.kakao_error = kakao_error
-            st.session_state.screen = 2
-            st.rerun()
-        if kakao_error:
-            st.error(kakao_error)
-        else:
-            st.warning(f"'{name}'라는 가게를 찾지 못했어요. 이름을 다시 확인해 주세요")
+if searched:
+    # 검색하면 결과가 보이는 "가게 찾기" 탭으로 돌아온다
+    st.session_state.main_tab = "가게 찾기"
 
-    st.divider()
+if searched and not name:
+    notice = ("warning", "가게 이름을 입력해 주세요")
+elif searched:
+    found = (
+        supabase.table("stores")
+        .select("name, open_time, close_time, naver_rating, kakao_rating")
+        .ilike("name", f"%{name}%")
+        .execute()
+        .data
+    )
+    kakao_error = None
+    try:
+        with st.spinner("카카오에서 찾는 중이에요"):
+            kakao = search_kakao(name)
+    except KakaoError as error:
+        kakao, kakao_error = [], str(error)
+    # stores 표에 이미 있는 가게는 통합 점수가 있는 왼쪽 목록에만 보여 준다
+    known = {s["name"] for s in found}
+    kakao = [p for p in kakao if p["name"] not in known]
 
+    if found or kakao:
+        st.session_state.found = found
+        st.session_state.kakao = kakao
+        st.session_state.kakao_error = kakao_error
+        st.session_state.screen = 2
+        st.rerun()
+    if kakao_error:
+        notice = ("error", kakao_error)
+    else:
+        notice = ("warning", f"'{name}'라는 가게를 찾지 못했어요. 이름을 다시 확인해 주세요")
+
+
+def show_open_stores(found):
+    # stores 표에서 찾은 가게 가운데 지금 영업 중인 곳만 통합 점수와 함께 보여 준다
+    now = datetime.now(KST).time()
+    stores = [s for s in found if is_open(s, now)]
+    stores.sort(key=lambda s: total_score(s) or 0, reverse=True)
+    stores = stores[:10]
+
+    st.caption(f"영업 중 · {len(stores)}곳")
+    if not stores:
+        st.info("현재 영업중인 가게가 없습니다.")
+    for store in stores:
+        score = total_score(store)
+        with st.container(border=True):
+            name_col, score_col = st.columns([3, 1])
+            name_col.write(store["name"])
+            score_col.write(f"통합 점수 {score}" if score is not None else "통합 점수 없음")
+
+
+def show_kakao_places(kakao):
+    st.subheader("카카오에서 찾은 가게", anchor=False)
+    st.caption(f"{len(kakao)}곳 · 별점과 영업시간 정보가 없어 통합 점수를 낼 수 없고, 영업 중인지 알 수 없어요")
+    for place in kakao:
+        with st.container(border=True):
+            name_col, score_col = st.columns([3, 1])
+            name_col.write(place["name"])
+            name_col.caption(place["address"])
+            score_col.write("통합 점수 없음")
+
+
+find_tab, ai_tab = st.tabs(["가게 찾기", "AI 지역 추천"], key="main_tab", on_change="rerun")
+
+with find_tab:
+    # 안내 문구는 탭 맨 위 한 줄에 띄운다
+    if notice:
+        getattr(st, notice[0])(notice[1])
+
+    if st.session_state.screen == 2:
+        # 화면 2 · 나오는 화면
+        if st.session_state.get("kakao_error"):
+            st.error(st.session_state.kakao_error)
+
+        found = st.session_state.found
+        kakao = st.session_state.get("kakao", [])
+        # 둘 다 있으면 왼쪽에 영업 중 목록, 오른쪽에 카카오 목록을 나란히 둔다
+        if found and kakao:
+            left, right = st.columns(2)
+            with left:
+                show_open_stores(found)
+            with right:
+                show_kakao_places(kakao)
+        elif found:
+            show_open_stores(found)
+        elif kakao:
+            show_kakao_places(kakao)
+
+with ai_tab:
+    # 가끔 쓰는 기능 · 지역 이름을 넣으면 AI 가 가게를 적어 준다
     with st.form("area_form", border=False):
         area = st.text_input("지금 있는 지역", placeholder="예) 강릉 중앙동").strip()
         area_asked = st.form_submit_button("내 지역 가게 보기", use_container_width=True)
@@ -285,46 +357,5 @@ if st.session_state.screen == 1:
                         f"쓴 토큰 : 모두 {usage.total_tokens or 0}"
                         f" (보낸 말 {usage.total_input_tokens or 0} · 받은 답 {usage.total_output_tokens or 0})"
                     )
-
-else:
-    # 화면 2 · 나오는 화면
-    title_col, back_col = st.columns([3, 1], vertical_alignment="center")
-    title_col.title("검색 결과")
-    if back_col.button("다시 검색하기"):
-        st.session_state.screen = 1
-        st.rerun()
-
-    if st.session_state.get("kakao_error"):
-        st.error(st.session_state.kakao_error)
-
-    # stores 표에서 찾은 가게가 있을 때만 영업 중 목록을 보여 준다
-    if st.session_state.found:
-        now = datetime.now(KST).time()
-        stores = [s for s in st.session_state.found if is_open(s, now)]
-        stores.sort(key=lambda s: total_score(s) or 0, reverse=True)
-        stores = stores[:10]
-
-        st.caption(f"영업 중 · {len(stores)}곳")
-
-        if not stores:
-            st.info("현재 영업중인 가게가 없습니다.")
-
-        for store in stores:
-            score = total_score(store)
-            with st.container(border=True):
-                name_col, score_col = st.columns([3, 1])
-                name_col.write(store["name"])
-                score_col.write(f"통합 점수 {score}" if score is not None else "통합 점수 없음")
-
-    kakao = st.session_state.get("kakao", [])
-    if kakao:
-        st.subheader("카카오에서 찾은 가게", anchor=False)
-        st.caption(f"{len(kakao)}곳 · 별점과 영업시간 정보가 없어 통합 점수를 낼 수 없고, 영업 중인지 알 수 없어요")
-        for place in kakao:
-            with st.container(border=True):
-                name_col, score_col = st.columns([3, 1])
-                name_col.write(place["name"])
-                name_col.caption(place["address"])
-                score_col.write("통합 점수 없음")
 
 st.caption("copyright by SIMON")
