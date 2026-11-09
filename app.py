@@ -3,6 +3,7 @@ from datetime import datetime, time, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
+import requests
 import streamlit as st
 from dotenv import load_dotenv
 from google import genai
@@ -23,6 +24,17 @@ AREA_INSTRUCTION = (
     "알려 준 시각에 문을 열었을 음식점 5~10곳을 세로 목록으로 적고, 한 줄에 가게 이름과 짧은 위치만 쓴다. "
     "리뷰 문장은 옮기거나 요약하지 않는다."
 )
+
+# 카카오 로컬 API 키워드 검색 : https://developers.kakao.com/docs/ko/local/dev-guide
+# 응답에 별점과 영업시간이 없어, 카카오에서만 찾은 가게는 통합 점수를 낼 수 없다
+KAKAO_KEYWORD_URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
+KAKAO_RESTAURANT_CODE = "FD6"  # 카카오 카테고리 코드 : 음식점
+KAKAO_MAX_PLACES = 10  # 화면 2 세로 목록에 맞춰 최대 10곳만 받는다
+KAKAO_ERRORS = {
+    401: "카카오가 키를 받아 주지 않았어요. .env 의 KAKAO_REST_API_KEY 가 REST API 키인지 확인해 주세요.",
+    403: "카카오맵 API 를 쓸 수 없는 앱이에요. 카카오 개발자 콘솔의 [카카오맵] > [사용 설정] 상태를 ON 으로 바꿔 주세요.",
+    429: "카카오 무료 사용량을 다 썼어요. 카카오 개발자 콘솔의 [통계] > [쿼터] 에서 확인해 주세요.",
+}
 
 PRD_PATH = Path(__file__).with_name("PRD.md")
 
@@ -82,6 +94,39 @@ def is_open(store, now):
         return open_at <= now < close_at
     # 자정을 넘겨 닫는 가게 (예: 18:00 ~ 02:00)
     return now >= open_at or now < close_at
+
+
+class KakaoError(Exception):
+    pass
+
+
+def search_kakao(name):
+    """가게 이름으로 카카오에서 음식점을 찾는다. 지역을 정하지 않아 전국에서 정확도 순으로 받는다."""
+    api_key = os.environ.get("KAKAO_REST_API_KEY", "").strip()
+    if not api_key:
+        raise KakaoError(".env 에서 KAKAO_REST_API_KEY 를 찾지 못했어요.")
+    try:
+        response = requests.get(
+            KAKAO_KEYWORD_URL,
+            headers={"Authorization": f"KakaoAK {api_key}"},
+            params={
+                "query": name,
+                "category_group_code": KAKAO_RESTAURANT_CODE,
+                "sort": "accuracy",
+                "size": KAKAO_MAX_PLACES,
+            },
+            timeout=10,
+        )
+    except requests.RequestException as error:
+        raise KakaoError("카카오에 연결하지 못했어요. 인터넷 연결을 확인하고 다시 검색해 주세요.") from error
+    if response.status_code != 200:
+        message = KAKAO_ERRORS.get(response.status_code, "카카오 검색에 실패했어요.")
+        raise KakaoError(f"{message} (응답 코드 {response.status_code})")
+    return [
+        # 도로명 주소가 없는 가게는 지번 주소를 쓴다
+        {"name": doc["place_name"], "address": doc["road_address_name"] or doc["address_name"]}
+        for doc in response.json()["documents"]
+    ]
 
 
 def total_score(store):
@@ -172,8 +217,10 @@ if st.session_state.screen == 1:
     # 화면 1 · 넣는 화면
     st.title("가게 이름으로 찾기")
 
-    name = st.text_input("가게 이름", placeholder="예) 행복분식").strip()
-    searched = st.button("검색", use_container_width=True)
+    # 폼으로 묶어서, 입력 칸에서 엔터를 쳐도 "검색"을 누른 것처럼 검색한다
+    with st.form("search_form", border=False):
+        name = st.text_input("가게 이름", placeholder="예) 행복분식").strip()
+        searched = st.form_submit_button("검색", use_container_width=True)
 
     if searched and not name:
         st.warning("가게 이름을 입력해 주세요")
@@ -185,16 +232,32 @@ if st.session_state.screen == 1:
             .execute()
             .data
         )
-        if found:
+        kakao_error = None
+        try:
+            with st.spinner("카카오에서 찾는 중이에요"):
+                kakao = search_kakao(name)
+        except KakaoError as error:
+            kakao, kakao_error = [], str(error)
+        # stores 표에 이미 있는 가게는 통합 점수가 있는 위쪽 목록에만 보여 준다
+        known = {s["name"] for s in found}
+        kakao = [p for p in kakao if p["name"] not in known]
+
+        if found or kakao:
             st.session_state.found = found
+            st.session_state.kakao = kakao
+            st.session_state.kakao_error = kakao_error
             st.session_state.screen = 2
             st.rerun()
-        st.warning(f"'{name}'라는 가게를 찾지 못했어요. 이름을 다시 확인해 주세요")
+        if kakao_error:
+            st.error(kakao_error)
+        else:
+            st.warning(f"'{name}'라는 가게를 찾지 못했어요. 이름을 다시 확인해 주세요")
 
     st.divider()
 
-    area = st.text_input("지금 있는 지역", placeholder="예) 강릉 중앙동").strip()
-    area_asked = st.button("내 지역 가게 보기", use_container_width=True)
+    with st.form("area_form", border=False):
+        area = st.text_input("지금 있는 지역", placeholder="예) 강릉 중앙동").strip()
+        area_asked = st.form_submit_button("내 지역 가게 보기", use_container_width=True)
 
     if area_asked and not area:
         st.warning("지금 있는 지역을 입력해 주세요")
@@ -231,18 +294,37 @@ else:
         st.session_state.screen = 1
         st.rerun()
 
-    now = datetime.now(KST).time()
-    stores = [s for s in st.session_state.found if is_open(s, now)]
-    stores.sort(key=lambda s: total_score(s) or 0, reverse=True)
-    stores = stores[:10]
+    if st.session_state.get("kakao_error"):
+        st.error(st.session_state.kakao_error)
 
-    st.caption(f"영업 중 · {len(stores)}곳")
+    # stores 표에서 찾은 가게가 있을 때만 영업 중 목록을 보여 준다
+    if st.session_state.found:
+        now = datetime.now(KST).time()
+        stores = [s for s in st.session_state.found if is_open(s, now)]
+        stores.sort(key=lambda s: total_score(s) or 0, reverse=True)
+        stores = stores[:10]
 
-    for store in stores:
-        score = total_score(store)
-        with st.container(border=True):
-            name_col, score_col = st.columns([3, 1])
-            name_col.write(store["name"])
-            score_col.write(f"통합 점수 {score}" if score is not None else "통합 점수 없음")
+        st.caption(f"영업 중 · {len(stores)}곳")
+
+        if not stores:
+            st.info("현재 영업중인 가게가 없습니다.")
+
+        for store in stores:
+            score = total_score(store)
+            with st.container(border=True):
+                name_col, score_col = st.columns([3, 1])
+                name_col.write(store["name"])
+                score_col.write(f"통합 점수 {score}" if score is not None else "통합 점수 없음")
+
+    kakao = st.session_state.get("kakao", [])
+    if kakao:
+        st.subheader("카카오에서 찾은 가게", anchor=False)
+        st.caption(f"{len(kakao)}곳 · 별점과 영업시간 정보가 없어 통합 점수를 낼 수 없고, 영업 중인지 알 수 없어요")
+        for place in kakao:
+            with st.container(border=True):
+                name_col, score_col = st.columns([3, 1])
+                name_col.write(place["name"])
+                name_col.caption(place["address"])
+                score_col.write("통합 점수 없음")
 
 st.caption("copyright by SIMON")
