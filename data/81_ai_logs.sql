@@ -11,6 +11,9 @@ create table if not exists public.ai_logs (
   output     text not null
 );
 
+-- 1-1. 누가 남긴 기록인지 적는 owner 열이 없으면 더한다 (앞서 쌓인 기록은 비어 있다)
+alter table public.ai_logs add column if not exists owner text;
+
 -- 2. 있던 허용 규칙을 지운다
 drop policy if exists "ai_logs 읽기" on public.ai_logs;
 drop policy if exists "ai_logs 넣기" on public.ai_logs;
@@ -26,7 +29,7 @@ create policy "ai_logs 읽기" on public.ai_logs
 create policy "ai_logs 넣기" on public.ai_logs
   for insert to anon, authenticated with check (true);
 
--- 4. 확인 : 열 6개와 허용 규칙 2개가 나오면 된다
+-- 4. 확인 : 열 7개와 허용 규칙 2개가 나오면 된다
 select 'column' as kind, column_name as name, data_type as detail
 from information_schema.columns
 where table_schema = 'public'

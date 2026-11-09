@@ -139,10 +139,14 @@ def total_score(store):
 
 
 def save_ai_log(kind, input_text, output_text):
-    # AI 에 넣은 것과 받은 답을 ai_logs 표에 남긴다. 남기지 못해도 답은 그대로 보여 준다
+    # AI 에 넣은 것과 받은 답을 사이드바에 넣은 이름과 함께 ai_logs 표에 남긴다. 남기지 못해도 답은 그대로 보여 준다
+    owner = st.session_state.get("owner", "").strip()
+    if not owner:
+        st.warning("이름이 비어 있어 기록을 남기지 않았어요. 사이드바에 이름을 입력해 주세요")
+        return
     try:
         get_client().table("ai_logs").insert(
-            {"kind": kind, "model": MODEL, "input": input_text, "output": output_text}
+            {"kind": kind, "model": MODEL, "input": input_text, "output": output_text, "owner": owner}
         ).execute()
     except Exception as e:
         st.caption(f"기록을 남기지 못했어요 : {e}")
@@ -213,8 +217,9 @@ if not st.session_state.get("started"):
         st.rerun()
     st.stop()
 
-# 화면 1·2 의 사이드바 · 첫 화면으로 돌아가는 버튼
+# 화면 1·2 의 사이드바 · AI 기록에 같이 남길 이름 칸과 첫 화면으로 돌아가는 버튼
 with st.sidebar:
+    st.text_input("이름", placeholder="AI 기록에 같이 남길 이름", key="owner")
     if st.button("첫 화면으로 돌아가기", icon=":material/home:", width="stretch"):
         st.session_state.started = False
         st.rerun()

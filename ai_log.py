@@ -24,9 +24,15 @@ supabase = get_client()
 
 st.title("AI 기록")
 
+owner = st.text_input("이름", placeholder="기록을 남길 때 넣은 이름").strip()
 kind = st.selectbox("어디서 물었나", KINDS)
 
-query = supabase.table("ai_logs").select("created_at, kind, model, input, output")
+if not owner:
+    st.warning("이름을 입력해 주세요. 그 이름으로 남긴 기록만 보여 드려요")
+    st.stop()
+
+# 이름 칸의 이름과 owner 가 같은 줄만 받는다
+query = supabase.table("ai_logs").select("created_at, kind, model, input, output").eq("owner", owner)
 if kind != "모두":
     query = query.eq("kind", kind)
 try:
