@@ -313,6 +313,10 @@ def show_admin():
     if not is_admin():
         return
     st.write("관리자만 보는 화면입니다")
+    # 들어오기 전 화면(화면 1 또는 화면 2)으로 돌아간다
+    if st.button("돌아가기", icon=":material/arrow_back:"):
+        st.session_state.screen = st.session_state.pop("screen_before_admin", 1)
+        st.rerun()
 
 
 # 구글 계정으로 들어와야 첫 화면부터 모든 화면이 보인다
@@ -342,6 +346,9 @@ admin = is_admin()
 if admin:
     with st.sidebar:
         if st.button("관리", icon=":material/admin_panel_settings:", width="stretch"):
+            # 「돌아가기」 로 다시 갈 수 있게 들어오기 전 화면을 기억해 둔다
+            if st.session_state.get("screen") != "admin":
+                st.session_state.screen_before_admin = st.session_state.get("screen", 1)
             st.session_state.screen = "admin"
             st.rerun()
 
