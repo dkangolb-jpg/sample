@@ -20,7 +20,7 @@ PAGE_SIZE = 15  # 문서 기준 한 쪽 최대 개수
 MAX_PLACES = 45  # 문서 기준 검색어 하나로 볼 수 있는 최대 개수 (pageable_count)
 
 RADIUS_OPTIONS = [500, 1000, 1500, 3000]
-BAR_COLOR = "#2a78d6"
+BAR_COLOR = "#D97845"  # .streamlit/config.toml 의 강조색과 같다
 
 # 화면에 보이는 정렬 이름 : (정렬할 칸, 오름차순 여부)
 SORT_OPTIONS = {

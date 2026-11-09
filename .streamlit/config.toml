@@ -1,0 +1,16 @@
+# 서비스 전체 색 · 첫 화면(landing.py)에서 맞춘 색을 모든 화면에 똑같이 쓴다
+# 이 폴더에서 streamlit run 으로 여는 모든 화면이 이 색을 따른다
+[theme]
+base = "light"
+# 강조 : 버튼, 고른 탭 밑줄, 링크
+primaryColor = "#D97845"
+# 바탕
+backgroundColor = "#F6F3EC"
+# 사이드바, 입력 칸 바탕 · 히어로 영상 색 #C9A982 에 흰색을 70% 섞은 색
+secondaryBackgroundColor = "#EDE3D6"
+# 글자
+textColor = "#343B32"
+# 테두리 · #C9A982 에 흰색을 45% 섞은 색
+borderColor = "#E1D0BA"
+# 안내 상자(st.info) 색 · 파랑 대신 #C9A982 에 검은색을 40% 섞은 갈색. 경고(노랑)·오류(빨강)는 그대로 둔다
+blueColor = "#79654E"
