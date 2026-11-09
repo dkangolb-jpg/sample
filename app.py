@@ -10,6 +10,8 @@ from google import genai
 from google.genai import types
 from supabase import create_client
 
+from landing import show_landing
+
 load_dotenv()
 
 st.set_page_config(page_title="가게 이름으로 찾기")
@@ -202,6 +204,20 @@ def chatbot():
                 {"role": "assistant", "content": interaction.output_text},
             ]
 
+
+# 첫 화면 · 앱을 열면 먼저 뜨고, 「시작하기」를 누르면 화면 1 로 간다
+if not st.session_state.get("started"):
+    if show_landing():
+        st.session_state.started = True
+        st.session_state.screen = 1
+        st.rerun()
+    st.stop()
+
+# 화면 1·2 의 사이드바 · 첫 화면으로 돌아가는 버튼
+with st.sidebar:
+    if st.button("첫 화면으로 돌아가기", icon=":material/home:", width="stretch"):
+        st.session_state.started = False
+        st.rerun()
 
 supabase = get_client()
 
