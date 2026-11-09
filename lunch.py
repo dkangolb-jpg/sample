@@ -5,9 +5,9 @@ import altair as alt
 import pandas as pd
 import requests
 import streamlit as st
-from dotenv import load_dotenv
+from env_keys import load_keys
 
-load_dotenv()
+load_keys()
 
 st.set_page_config(page_title="맛집 찾기", layout="wide")
 

@@ -3,10 +3,10 @@ import uuid
 from datetime import datetime
 
 import streamlit as st
-from dotenv import load_dotenv
+from env_keys import load_keys
 from supabase import create_client
 
-load_dotenv()
+load_keys()
 
 st.set_page_config(page_title="사진 보관함")
 

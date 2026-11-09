@@ -1,12 +1,12 @@
 import os
 
 import streamlit as st
-from dotenv import load_dotenv
+from env_keys import load_keys
 from google import genai
 from google.genai import types
 from supabase import create_client
 
-load_dotenv()
+load_keys()
 
 st.set_page_config(page_title="챗봇")
 

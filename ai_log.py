@@ -2,10 +2,10 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import streamlit as st
-from dotenv import load_dotenv
+from env_keys import load_keys
 from supabase import create_client
 
-load_dotenv()
+load_keys()
 
 st.set_page_config(page_title="AI 기록")
 
