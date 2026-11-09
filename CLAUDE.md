@@ -24,6 +24,7 @@
 - 화면을 만들 때 → .claude/rules/screen.md
 - 도구를 새로 설치하거나 연결할 때 → .claude/rules/tool.md
 - 안내 문구를 쓸 때 → .claude/rules/writing.md
+- 파일을 고치는 작업을 마치고 확인까지 끝냈을 때 → commit-push 스킬을 써서 바로 커밋하고 푸시한다 (.claude/skills/commit-push/SKILL.md)
 
 ## 우선순위
 
