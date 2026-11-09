@@ -7,3 +7,5 @@ __pycache__/
 
 # 이 컴퓨터의 편집기 설정이라 서비스와 상관이 없다
 .vscode/
+
+.streamlit/secrets.toml
