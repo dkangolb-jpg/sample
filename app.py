@@ -272,20 +272,81 @@ def chatbot():
             ]
 
 
+# 들어가는 곳 · 왼쪽 이름은 secrets.toml 의 [auth.○○] 이름과 같고 st.login("○○") 에 그대로 넘긴다
+LOGIN_PROVIDERS = {"google": "구글", "naver": "네이버", "kakao": "카카오"}
+
+# 네이버는 신분 토큰에 이름을 담아 주지 않아, 로그인 때 받은 열쇠(access 토큰)로 프로필 API 에 따로 묻는다
+NAVER_PROFILE_URL = "https://openapi.naver.com/v1/nid/me"
+
+
+def provider_ready(provider):
+    # secrets.toml 의 [auth.○○] 에 client_id 와 client_secret 이 둘 다 채워져 있어야 그곳으로 들어갈 수 있다
+    try:
+        section = st.secrets["auth"][provider]
+    except Exception:
+        return False
+    return bool(section.get("client_id")) and bool(section.get("client_secret"))
+
+
 def show_login():
-    # 구글 계정으로 들어오기 전에만 그린다. 구글 키는 .streamlit/secrets.toml 의 [auth] · [auth.google] 에서 읽는다
+    # 들어오기 전에만 그린다. 키는 .streamlit/secrets.toml 의 [auth] 와 [auth.google] · [auth.naver] · [auth.kakao] 에서 읽는다
     st.title("가게 이름으로 찾기", anchor=False)
-    st.markdown("구글 계정으로 들어오면 서비스를 쓸 수 있어요.")
-    if st.button("구글 계정으로 들어가기", type="primary", icon=":material/login:"):
-        try:
-            st.login("google")
-        except Exception as e:
-            st.error(f"구글 로그인을 시작하지 못했어요. .streamlit/secrets.toml 의 [auth] 값을 확인해 주세요 : {e}")
+    st.markdown("구글·네이버·카카오 계정 가운데 하나로 들어오면 서비스를 쓸 수 있어요.")
+    chosen = None
+    with st.container(horizontal=True):
+        for provider, label in LOGIN_PROVIDERS.items():
+            if st.button(f"{label} 계정으로 들어가기", type="primary", icon=":material/login:", key=f"login_{provider}"):
+                chosen = provider
+    if chosen is None:
+        return
+    label = LOGIN_PROVIDERS[chosen]
+    if not provider_ready(chosen):
+        st.error(f"{label} 로그인 키가 아직 없어요. .streamlit/secrets.toml 의 [auth.{chosen}] 에 client_id 와 client_secret 을 채워 주세요.")
+        return
+    try:
+        st.login(chosen)
+    except Exception as e:
+        st.error(f"{label} 로그인을 시작하지 못했어요. .streamlit/secrets.toml 의 [auth] · [auth.{chosen}] 값을 확인해 주세요 : {e}")
+
+
+@st.cache_data(ttl="1d", show_spinner=False)
+def fetch_naver_profile(access_token):
+    # 네이버 프로필 API 답은 {"resultcode": "00", "response": {"name": ..., "nickname": ...}} 꼴이고, 개발자센터에서 고른 항목만 들어 있다
+    # 실패하면 오류를 내서 캐시에 남기지 않고, 다음에 다시 묻는다
+    res = requests.get(NAVER_PROFILE_URL, headers={"Authorization": f"Bearer {access_token}"}, timeout=5)
+    res.raise_for_status()
+    body = res.json()
+    if body.get("resultcode") != "00":
+        raise RuntimeError(body.get("message") or "네이버 프로필을 받지 못했어요")
+    return body.get("response") or {}
+
+
+def naver_name():
+    # 들어와 있는 동안 한 번만 묻는다. 열쇠가 만료(1시간)되어 못 받았을 때도 화면이 바뀔 때마다 다시 묻지 않는다
+    if "naver_name" not in st.session_state:
+        st.session_state.naver_name = None
+        # secrets.toml [auth] 의 expose_tokens = "access" 가 있어야 st.user.tokens 에 열쇠가 들어온다
+        token = st.user.tokens.get("access")
+        if token:
+            try:
+                profile = fetch_naver_profile(token)
+                st.session_state.naver_name = profile.get("name") or profile.get("nickname")
+            except (requests.RequestException, RuntimeError, ValueError):
+                pass
+    return st.session_state.naver_name
+
+
+def user_name():
+    # 구글은 name, 카카오는 nickname 을 신분 토큰에 담아 준다. 네이버는 담아 주지 않아 프로필 API 로 따로 묻는다
+    name = st.user.get("name") or st.user.get("nickname")
+    if not name and st.user.get("provider") == "naver":
+        name = naver_name()
+    return name or st.user.get("email") or "이름 없음"
 
 
 def show_user_bar():
     # 모든 화면 맨 위 오른쪽에 들어온 사람의 이름과 로그아웃 버튼을 둔다. 이름이 없으면 이메일을 보여 준다
-    who = st.user.get("name") or st.user.get("email") or "이름 없음"
+    who = user_name()
     who = "".join(f"\\{ch}" if ch in MARKDOWN_CHARS else ch for ch in who)
     with st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="center"):
         st.markdown(f":material/account_circle: **{who}** 님")
@@ -295,6 +356,9 @@ def show_user_bar():
 
 def is_admin():
     # 들어온 사람의 메일이 secrets.toml 맨 위 ADMIN_EMAILS 목록에 있으면 관리자다. 목록이 없거나 못 읽으면 아무도 관리자가 아니다
+    # 관리자는 구글 계정으로 들어온 사람만 본다. 네이버·카카오로 들어오면 메일을 받아 오지 않고, 받더라도 그 메일로 관리자를 가리지 않는다
+    if st.user.get("provider") != "google":
+        return False
     email = (st.user.get("email") or "").strip().lower()
     if not email:
         return False
