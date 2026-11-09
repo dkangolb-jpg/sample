@@ -149,6 +149,40 @@ def save_search_log(name, output_text):
         st.session_state.search_log_error = f"검색 기록을 남기지 못했어요 : {e}"
 
 
+SEARCH_HISTORY_SIZE = 10  # 사이드바에 보여 줄 검색했던 가게 이름 수
+
+
+def show_search_history():
+    # ai_logs 표의 "가게 검색" 줄에서 최근에 검색한 가게 이름을 겹치지 않게 골라 사이드바에 보여 준다
+    st.subheader("검색했던 가게", anchor=False)
+    try:
+        rows = (
+            get_client()
+            .table("ai_logs")
+            .select("owner, created_at")
+            .eq("kind", "가게 검색")
+            .order("created_at", desc=True)
+            .limit(SEARCH_HISTORY_SIZE * 5)
+            .execute()
+            .data
+        )
+    except Exception as e:
+        st.caption(f"검색 기록을 불러오지 못했어요 : {e}")
+        return
+    # 같은 이름을 여러 번 검색했으면 가장 최근 것 하나만 남긴다
+    latest = {}
+    for row in rows:
+        if row["owner"] and row["owner"] not in latest:
+            latest[row["owner"]] = row["created_at"]
+    if not latest:
+        st.caption("아직 검색한 가게가 없어요")
+        return
+    for owner, created_at in list(latest.items())[:SEARCH_HISTORY_SIZE]:
+        # Supabase 는 UTC 로 돌려주므로 한국 시각으로 바꿔 보여 준다
+        at = datetime.fromisoformat(created_at).astimezone(KST).strftime("%m-%d %H:%M")
+        st.text(f"{owner}  ·  {at}")
+
+
 def save_ai_log(kind, input_text, output_text):
     # AI 에 넣은 것과 받은 답을 마지막으로 검색한 가게 이름과 함께 ai_logs 표에 남긴다. 남기지 못해도 답은 그대로 보여 준다
     owner = st.session_state.get("last_search", "").strip()
@@ -307,6 +341,10 @@ elif searched:
         notice = ("error", kakao_error)
     else:
         notice = ("warning", f"'{name}'라는 가게를 찾지 못했어요. 이름을 다시 확인해 주세요")
+
+# 화면 1·2 의 사이드바 · 방금 한 검색까지 들어가도록 검색을 마친 뒤에 그린다
+with st.sidebar:
+    show_search_history()
 
 
 def show_open_stores(found):
