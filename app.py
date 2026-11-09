@@ -272,6 +272,35 @@ def chatbot():
             ]
 
 
+def show_login():
+    # 구글 계정으로 들어오기 전에만 그린다. 구글 키는 .streamlit/secrets.toml 의 [auth] · [auth.google] 에서 읽는다
+    st.title("가게 이름으로 찾기", anchor=False)
+    st.markdown("구글 계정으로 들어오면 서비스를 쓸 수 있어요.")
+    if st.button("구글 계정으로 들어가기", type="primary", icon=":material/login:"):
+        try:
+            st.login("google")
+        except Exception as e:
+            st.error(f"구글 로그인을 시작하지 못했어요. .streamlit/secrets.toml 의 [auth] 값을 확인해 주세요 : {e}")
+
+
+def show_user_bar():
+    # 모든 화면 맨 위 오른쪽에 들어온 사람의 이름과 로그아웃 버튼을 둔다. 이름이 없으면 이메일을 보여 준다
+    who = st.user.get("name") or st.user.get("email") or "이름 없음"
+    who = "".join(f"\\{ch}" if ch in MARKDOWN_CHARS else ch for ch in who)
+    with st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="center"):
+        st.markdown(f":material/account_circle: **{who}** 님")
+        if st.button("로그아웃", type="tertiary", icon=":material/logout:"):
+            st.logout()
+
+
+# 구글 계정으로 들어와야 첫 화면부터 모든 화면이 보인다
+# secrets.toml 에 [auth] 가 아직 없으면 is_logged_in 값 자체가 없으므로 .get 으로 읽어 들어오지 않은 것으로 본다
+if not st.user.get("is_logged_in"):
+    show_login()
+    st.stop()
+
+show_user_bar()
+
 # 첫 화면 · 앱을 열면 먼저 뜨고, 「시작하기」를 누르면 화면 1 로 간다
 if not st.session_state.get("started"):
     if show_landing():

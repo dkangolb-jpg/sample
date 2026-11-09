@@ -1,5 +1,7 @@
 # 첫 화면, 화면 1·2, 「AI 지역 추천」 탭, 🐣 챗봇 등 모든 화면을 그린다 (app.py, landing.py)
 streamlit==1.65.0
+# 구글 계정으로 들어오게 하는 st.login 이 이 꾸러미로 구글과 주고받는다 (app.py 의 show_login)
+Authlib==1.9.5
 # stores 표에서 가게 이름·영업시간·네이버 별점·카카오 별점을 찾아오고, AI 에 넣은 것과 받은 답을 ai_logs 표에 남긴다 (app.py)
 supabase==2.32.0
 # .env 에 적어 둔 키들을 앱이 켜질 때 읽어 온다 (env_keys.py 의 load_keys · 올린 곳에서는 .env 대신 Secrets 에서 읽는다)
