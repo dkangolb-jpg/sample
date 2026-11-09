@@ -116,7 +116,7 @@ def show_landing():
             muted=True,
             alt="천천히 흐르는 지도 위로 현재 위치에서 물결이 퍼지는 배경 영상",
         )
-        st.title("가게 이름으로 찾기", anchor=False)
+        st.title("대동맛지도", anchor=False)
         with st.container(key="landing_intro"):
             # PRD.md 의 한 줄 정의를 그대로 쓴다
             st.markdown("여행하며 현재 위치하고 있는 지역의 지도상에서 맛집을 골라 찾아갈 수 있는 서비스.")

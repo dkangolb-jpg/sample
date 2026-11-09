@@ -16,7 +16,7 @@
 - `dashboard/index.html` — 워크숍정산 합계를 보여 주는 정적 HTML 한 장. 숫자는 `02_output/워크숍정산.xlsx` 에서 손으로 옮겨 적는다
 - `memo.md` — 정산·대시보드에서 내린 결정과 남은 할 일 메모. 그쪽을 고치기 전에 먼저 본다
 - `idea/` — PRD 이전 단계 문서(problems → ideas → shortlist → topic → scope)와 `wireframe.png`
-- `PRD.md` — "가게 이름으로 찾기" 의 기준 문서(문제, 페르소나, 범위, 화면, 수용 기준)
+- `PRD.md` — "대동맛지도" 의 기준 문서(문제, 페르소나, 범위, 화면, 수용 기준)
 - `tasks.md` — `PRD.md` 에서 뽑은 할 일 체크리스트. `PRD.md` 가 바뀌면 다시 뽑는다
 
 ## 상황별 규칙 (목차 — 규칙은 .claude/rules/ 에 있음)

@@ -15,7 +15,7 @@ from landing import show_landing
 
 load_keys()
 
-st.set_page_config(page_title="가게 이름으로 찾기")
+st.set_page_config(page_title="대동맛지도")
 
 KST = timezone(timedelta(hours=9))
 
@@ -222,7 +222,7 @@ def chatbot():
     st.html(CHATBOT_CSS)
     with st.container(key="chatbot"):
         with st.popover("", icon="🐣", help="서비스에 대해 물어보세요"):
-            st.markdown("**가게 이름으로 찾기 · 챗봇**")
+            st.markdown("**대동맛지도 · 챗봇**")
             tone = st.selectbox("말투", list(CHATBOT_TONES), key="chatbot_tone")
             history = st.container(height=320)
             with history:
@@ -345,7 +345,7 @@ def provider_ready(provider):
 
 def show_login():
     # 들어오기 전에만 그린다. 키는 .streamlit/secrets.toml 의 [auth] 와 [auth.google] · [auth.naver] · [auth.kakao] 에서 읽는다
-    st.title("가게 이름으로 찾기", anchor=False)
+    st.title("대동맛지도", anchor=False)
     st.markdown("구글·네이버·카카오 계정 가운데 하나로 들어오면 서비스를 쓸 수 있어요.")
     st.html(login_css())
     chosen = None
@@ -494,7 +494,7 @@ chatbot()
 notice = None
 
 # 제목과 넣는 칸 · 화면 1 과 화면 2 가 같은 자리를 쓴다
-st.title("가게 이름으로 찾기" if st.session_state.screen == 1 else "검색 결과")
+st.title("대동맛지도" if st.session_state.screen == 1 else "검색 결과")
 if st.session_state.screen == 2:
     input_area, back_area = st.columns([5, 1], vertical_alignment="bottom")
 else:
