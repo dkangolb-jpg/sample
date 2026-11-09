@@ -151,6 +151,15 @@ def save_search_log(name, output_text):
 
 SEARCH_HISTORY_SIZE = 10  # 사이드바에 보여 줄 검색했던 가게 이름 수
 
+# 버튼 글자는 마크다운으로 읽히므로, 가게 이름 속 이 글자들은 앞에 \ 를 붙여 글자 그대로 보이게 한다
+MARKDOWN_CHARS = "\\`*_[]~#$:"
+
+
+def search_again(name):
+    # 사이드바에서 검색했던 가게를 누르면, 그 이름을 가게 이름 칸에 넣고 "검색"을 누른 것처럼 한다
+    st.session_state.store_name = name
+    st.session_state.search_again = True
+
 
 def show_search_history():
     # ai_logs 표의 "가게 검색" 줄에서 최근에 검색한 가게 이름을 겹치지 않게 골라 사이드바에 보여 준다
@@ -180,7 +189,16 @@ def show_search_history():
     for owner, created_at in list(latest.items())[:SEARCH_HISTORY_SIZE]:
         # Supabase 는 UTC 로 돌려주므로 한국 시각으로 바꿔 보여 준다
         at = datetime.fromisoformat(created_at).astimezone(KST).strftime("%m-%d %H:%M")
-        st.text(f"{owner}  ·  {at}")
+        label = "".join(f"\\{ch}" if ch in MARKDOWN_CHARS else ch for ch in owner)
+        st.button(
+            f"{label}  ·  {at}",
+            key=f"history_{owner}",
+            icon=":material/history:",
+            type="tertiary",
+            help="이 이름으로 다시 검색해요",
+            on_click=search_again,
+            args=(owner,),
+        )
 
 
 def save_ai_log(kind, input_text, output_text):
@@ -294,6 +312,8 @@ with input_area:
         name_col, button_col = st.columns([4, 1], vertical_alignment="bottom")
         name = name_col.text_input("가게 이름", placeholder="예) 행복분식", key="store_name").strip()
         searched = button_col.form_submit_button("검색", use_container_width=True)
+    # 사이드바의 검색했던 가게를 눌렀을 때도 검색한 것으로 친다
+    searched = st.session_state.pop("search_again", False) or searched
 
 if back_area is not None and back_area.button("다시 검색하기", use_container_width=True):
     st.session_state.screen = 1
