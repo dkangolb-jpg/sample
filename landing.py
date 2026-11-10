@@ -1,7 +1,7 @@
 """첫 화면 · 서비스를 소개하고 「시작하기」 버튼으로 기능 화면(화면 1)에 보낸다.
 
 서비스 전체 색은 .streamlit/config.toml 에 있다. 아래 CSS 는 첫 화면에만 있는
-히어로 영역, 큰 제목, 하는 일 세 칸, 「시작하기」 버튼 모양을 꾸민다.
+맨 위 사용법 영상 칸, 히어로 영역, 큰 제목, 하는 일 세 칸, 「시작하기」 버튼 모양을 꾸민다.
 """
 
 from pathlib import Path
@@ -10,6 +10,9 @@ import streamlit as st
 
 # 히어로 영역 배경 영상 · make_hero.py 로 만든다
 HERO_VIDEO = Path(__file__).with_name("hero.mp4")
+
+# 온보딩 안내 영상 · 처음 온 사람이 첫 화면 맨 위에서 바로 눌러 보는 30초 사용법 영상 (demo_deck 폴더에서 만들어 복사해 왔다)
+GUIDE_VIDEO = Path(__file__).with_name("소개영상.mp4")
 
 BACKGROUND = "#F6F3EC"
 TEXT = "#343B32"
@@ -29,6 +32,16 @@ LANDING_CSS = f"""
 }}
 .st-key-landing_intro p {{
     font-size: 1.2rem;
+}}
+/* 맨 위 사용법 영상 칸 · 하는 일 세 칸과 같은 카드 모양으로 감싼다 */
+.st-key-landing_guide {{
+    border: 1px solid rgba(52, 59, 50, 0.18);
+    border-radius: 12px;
+    padding: 1rem 1.25rem 1.25rem;
+    background-color: rgba(255, 255, 255, 0.55);
+}}
+.st-key-landing_guide video.stVideo {{
+    border-radius: 8px;
 }}
 /* 히어로 영역 · 영상을 맨 아래에 깔고, 왼쪽을 밝게 덮은 뒤, 그 위에 제목과 버튼을 올린다 */
 .st-key-landing_hero {{
@@ -106,6 +119,17 @@ FEATURES = [
 def show_landing():
     """첫 화면을 그리고, 「시작하기」를 눌렀으면 True 를 돌려준다."""
     st.html(LANDING_CSS)
+
+    # 온보딩 안내 · 첫 화면 맨 위에 사용법 영상을 두어, 처음 온 사람이 ▶ 를 눌러 바로 볼 수 있게 한다
+    # 저절로 재생하거나 되풀이하지 않는다. 소리 없는 영상이다
+    with st.container(key="landing_guide"):
+        st.markdown("**처음 오셨나요?** ▶ 를 눌러 30초 사용법 영상을 먼저 보세요.")
+        st.video(
+            str(GUIDE_VIDEO),
+            alt="「시작하기」부터 「첫 화면으로 돌아가기」까지 누르는 순서를 보여 주는 30초 사용법 영상",
+        )
+
+    st.space("small")
 
     # 히어로 영역 · 배경 영상 위에 제목, 한 줄 소개, 「시작하기」를 올린다
     with st.container(key="landing_hero"):
